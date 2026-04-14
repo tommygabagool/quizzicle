@@ -74,21 +74,34 @@ function parseWorkbook(wb) {
       gameDates.push({ date: sheetName.trim(), teams });
 
     } else if (isLeaderboardSheet(sheetName)) {
-      const parsed = rows.map(row => {
-        const norm = {};
-        for (const [k, v] of Object.entries(row)) norm[k.trim().toLowerCase()] = v;
-        const name = norm["team"] || norm["team name"] || norm["name"] || Object.values(norm)[0] || "";
-        const total = parseFloat(norm["total"] || norm["total points"] || 0) || 0;
+        // Sheet has no header row — row 1 is a title, data starts row 2
+        // Column A = rank number, Column B = team name, then week columns, last = Total Points
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  
+        // Find the first row that has a recognizable date in col index 2+ (skip title row)
+        // Row index 0 = title, row index 1+ = data
+      const dataRows = rows.slice(1).filter(r => r[1] && isNaN(Number(r[1])));
+  
+        // Get week column headers from first data row's sheet — use raw array mode
+        // Actually grab headers from row 0 col 2 onward (the title row has date headers)
+      const headerRow = rows[0]; // "Leaderboard Season 2", "24-Feb", "3-Mar", ... "Total Points"
+      const weekHeaders = headerRow.slice(2, -1).map(h => String(h).trim()).filter(Boolean);
+  
+      const parsed = dataRows.map(row => {
+        const name = String(row[1] || "").trim();
+        if (!name) return null;
+        const total = parseFloat(row[row.length - 1]) || 0;
         const weeks = {};
-        for (const [k, v] of Object.entries(norm)) {
-          if (["team","total","name","team name","total points"].includes(k)) continue;
-          weeks[k] = parseFloat(v) || 0;
-        }
-        return { name: String(name).trim(), weeks, total };
-      }).filter(t => t.name);
+        weekHeaders.forEach((w, i) => {
+          weeks[w] = parseFloat(row[i + 2]) || 0;
+        });
+        return { name, weeks, total };
+      }).filter(Boolean);
+  
       leaderboardRaw.push(...parsed);
     }
   }
+
 
   gameDates.sort((a, b) => {
     const parse = d => { const [m, day] = d.split(" "); return (MONTH_MAP[m.toLowerCase()] || 0) * 100 + parseInt(day); };
