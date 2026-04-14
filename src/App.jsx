@@ -41,8 +41,8 @@ function saveState(state) {
 // ─── Excel Parser ─────────────────────────────────────────────────────────────
 function parseWorkbook(wb) {
   const isGameSheet = name => {
-    const parts = name.trim().toLowerCase().split(/\s+/);
-    return parts.length === 2 && MONTH_MAP[parts[0]] && !isNaN(parseInt(parts[1]));
+    const match = name.trim().match(/^BRT SCOREBOARD\s+(\w+)\s+(\d+)$/i);
+    return match && MONTH_MAP[match[1].toLowerCase()] && !isNaN(parseInt(match[2]));
   };
   const isLeaderboardSheet = name => /season|leader|board|standing/i.test(name);
 
