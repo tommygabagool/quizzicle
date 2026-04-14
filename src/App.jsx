@@ -74,32 +74,39 @@ function parseWorkbook(wb) {
       gameDates.push({ date: sheetName.trim(), teams });
 
     } else if (isLeaderboardSheet(sheetName)) {
-        // Sheet has no header row — row 1 is a title, data starts row 2
-        // Column A = rank number, Column B = team name, then week columns, last = Total Points
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-  
-        // Find the first row that has a recognizable date in col index 2+ (skip title row)
-        // Row index 0 = title, row index 1+ = data
-      const dataRows = rows.slice(1).filter(r => r[1] && isNaN(Number(r[1])));
-  
-        // Get week column headers from first data row's sheet — use raw array mode
-        // Actually grab headers from row 0 col 2 onward (the title row has date headers)
-      const headerRow = rows[0]; // "Leaderboard Season 2", "24-Feb", "3-Mar", ... "Total Points"
-      const weekHeaders = headerRow.slice(2, -1).map(h => String(h).trim()).filter(Boolean);
-  
-      const parsed = dataRows.map(row => {
-        const name = String(row[1] || "").trim();
-        if (!name) return null;
-        const total = parseFloat(row[row.length - 1]) || 0;
-        const weeks = {};
-        weekHeaders.forEach((w, i) => {
-          weeks[w] = parseFloat(row[i + 2]) || 0;
-        });
-        return { name, weeks, total };
-      }).filter(Boolean);
-  
-      leaderboardRaw.push(...parsed);
-    }
+      const headerRow = rows[0];
+
+      // Find "Total Points" column index
+      const totalColIdx = headerRow.findIndex(h =>
+        String(h).toLowerCase().includes("total")
+      );
+
+      // Week columns are between index 2 and the total column (exclusive)
+      const weekHeaders = headerRow.slice(2, totalColIdx).map(h => {
+        // Convert Excel date serial to readable string if needed
+       if (typeof h === "number") {
+        const date = XLSX.SSF.parse_date_code(h);
+        return date ? `${date.d}-${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][date.m-1]}` : String(h);
+       }
+       return String(h).trim();
+     }).filter(Boolean);
+
+     const dataRows = rows.slice(1).filter(r => r[1] && isNaN(Number(String(r[1]).trim())));
+
+     const parsed = dataRows.map(row => {
+       const name = String(row[1] || "").trim();
+       if (!name) return null;
+       const total = parseFloat(row[totalColIdx]) || 0;
+       const weeks = {};
+       weekHeaders.forEach((w, i) => {
+         weeks[w] = parseFloat(row[i + 2]) || 0;
+       });
+       return { name, weeks, total };
+     }).filter(Boolean);
+
+     leaderboardRaw.push(...parsed);
+   }
   }
 
 
@@ -233,7 +240,7 @@ export default function App() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
           --g: #00FF94; --gd: rgba(0,255,148,.1); --gb: rgba(0,255,148,.22);
-          --bg: #0a0a0a; --s1: #111; --s2: #161616; --br: #222; --t: #f0f0f0; --mu: #555;
+          --bg: #2a2a2a;; --s1: #111; --s2: #161616; --br: #222; --t: #f0f0f0; --mu: #555;
           --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
         }
         body { background: var(--bg); color: var(--t); font-family: var(--sans); }
